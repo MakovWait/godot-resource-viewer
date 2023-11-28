@@ -161,7 +161,7 @@ class Dock extends PanelContainer:
 		cache[type.get_key()] = item
 		item.collapsed = true
 		item.set_text(0, type_name)
-		if type.get_src() is Script:
+		if type.get_src() is Script and not type.get_src().is_abstract():
 			item.set_metadata(0, type.get_src())
 			item.add_button(0, _get_theme_icon("Add", "EditorIcons"), buttons.add)
 			item.set_icon(0, _get_theme_icon("Object", "EditorIcons"))
