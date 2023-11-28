@@ -61,6 +61,26 @@ class Dock extends PanelContainer:
 		_line_edit.clear_button_enabled = true
 		_line_edit.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		_line_edit.placeholder_text = tr("Filter Resources")
+		_line_edit.search.connect(func(text):
+			_tree.visit(func(item: TreeItem):
+				if text.is_empty():
+					item.visible = true
+					return
+				if item.get_parent() == null:
+					return
+				var is_visible = text.is_subsequence_ofn(item.get_text(0))
+				item.visible = is_visible
+				if not is_visible:
+					return
+				item = item.get_parent()
+				while item != null:
+					item.collapsed = false
+					if item.visible:
+						break
+					item.visible = true
+					item = item.get_parent()
+			)
+		)
 		hb.add_child(_line_edit)
 		
 		_reload_btn = Button.new()
@@ -88,15 +108,11 @@ class Dock extends PanelContainer:
 		_tree.clear()
 		_tree.create_item()
 		
-		var script_map = {}
-		var resource_pathes_copy = resource_pathes.duplicate()
-		resource_pathes_copy.sort_custom(
-			func(a, b): return a.similarity(_line_edit.text) > b.similarity(_line_edit.text)
-		)
-		var resources = resource_pathes_copy.map(
+		var resources = resource_pathes.map(
 			func(x): return ResourceLoader.load(x)
 		).filter(func(x): return x != null)
 		
+		var script_map = {}
 		for res in resources:
 			var obj_type = _to_obj_type(res)
 			_create_folding_item(obj_type, script_map)
@@ -113,7 +129,6 @@ class Dock extends PanelContainer:
 	
 	func connect_reload(callback):
 		_reload_btn.pressed.connect(callback)
-		_line_edit.search.connect(func(_t): callback.call())
 	
 	func _handle_item_activated():
 		var selected = _tree.get_selected()
@@ -204,6 +219,20 @@ class ObjType:
 
 
 class ResourceTree extends Tree:
+	func visit(callback: Callable):
+		var items = []
+		items.push_back(get_root())
+		while len(items) > 0:
+			var item = items.pop_back()
+			if item == null:
+				return
+			
+			callback.call(item)
+			
+			var children = item.get_children()
+			for c in children:
+				items.push_back(c)
+
 	func _get_drag_data(at_position):
 		var selected = get_selected()
 		var metadata = selected.get_metadata(0)
