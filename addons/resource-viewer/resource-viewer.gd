@@ -95,22 +95,19 @@ class Dock extends PanelContainer:
 		)
 		var resources = resource_pathes_copy.map(
 			func(x): return ResourceLoader.load(x)
-		)
-		for res in resources:
-			var script = _script_of(res)
-			if _script_is_valid(script):
-				_create_script_item(script, script_map)
+		).filter(func(x): return x != null)
 		
 		for res in resources:
-			var script = _script_of(res)
-			if not _script_is_valid(script):
+			_create_folding_item(_to_obj_type(res), script_map)
+		
+		for res in resources:
+			var res_key = _to_obj_type(res).get_key()
+			if not res_key in script_map:
 				continue
-			if not script in script_map:
-				continue
-			var item = _tree.create_item(script_map[script])
-			item.set_text(0, res.resource_path.get_basename().get_file())
+			var item = _tree.create_item(script_map[res_key])
+			item.set_text(0, res.resource_path.get_file())
 			item.set_metadata(0, res)
-			item.set_icon(0, _get_theme_icon("File", "EditorIcons"))
+			item.set_icon(0, _get_theme_icon_by_class(res.get_class(), "File"))
 	
 	func connect_reload(callback):
 		_reload_btn.pressed.connect(callback)
@@ -129,42 +126,76 @@ class Dock extends PanelContainer:
 			_new_resource_window.setup(item.get_metadata(0))
 			_new_resource_window.popup_centered()
 	
-	func _create_script_item(script, cache):
-		if script in cache:
+	func _create_folding_item(type: ObjType, cache):
+		var type_name = type.get_name()
+		if type.get_key() in cache:
 			return
-		var base_script = _base_script_of(script)
+		
+		var parent = type.get_parent()
 		var item: TreeItem
-		if not _script_is_valid(base_script):
+		if parent.get_name().is_empty():
 			item = _tree.create_item()
 		else:
-			_create_script_item(base_script, cache)
-			item = _tree.create_item(cache[base_script])
+			_create_folding_item(parent, cache)
+			item = _tree.create_item(cache[parent.get_key()])
 		
-		cache[script] = item
+		cache[type.get_key()] = item
 		item.collapsed = true
-		item.set_text(0, _script_name(script))
-		item.set_metadata(0, script)
-		item.set_icon(0, _get_theme_icon("Object", "EditorIcons"))
-		item.add_button(0, _get_theme_icon("Add", "EditorIcons"), buttons.add)
+		item.set_text(0, type_name)
+		if type.get_src() is Script:
+			item.set_metadata(0, type.get_src())
+			item.add_button(0, _get_theme_icon("Add", "EditorIcons"), buttons.add)
+			item.set_icon(0, _get_theme_icon("Object", "EditorIcons"))
+		else:
+			item.set_icon(0, _get_theme_icon_by_class(type_name))
 	
-	func _base_script_of(script):
-#		return ClassDB.get_parent_class(script)
-		return script.get_base_script()
-	
-	func _script_of(res):
-#		return res.get_class()
-		return res.get_script()
-	
-	func _script_is_valid(s):
-#		return s != null and s != ""
-		return s != null and s is Script
-	
-	func _script_name(script):
-#		return script
-		return script.resource_path.get_basename().get_file()
+	func _to_obj_type(obj: Object) -> ObjType:
+		var script = obj.get_script()
+		if script != null:
+			return ObjType.new(script)
+		else:
+			return ObjType.new(obj.get_class())
+
+	func _get_theme_icon_by_class(obj_class, default="Object"):
+		if _editor_interface.get_base_control().has_theme_icon(obj_class, "EditorIcons"):
+			return _get_theme_icon(obj_class, "EditorIcons")
+		else:
+			return _get_theme_icon(default, "EditorIcons")
 	
 	func _get_theme_icon(icon_name, theme_type):
 		return _editor_interface.get_base_control().get_theme_icon(icon_name, theme_type)
+
+
+class ObjType:
+	var _src
+	
+	func _init(src):
+		self._src = src
+	
+	func get_src():
+		return _src
+	
+	func get_key():
+		if _src is Script:
+			return _src.resource_path
+		else:
+			return _src
+	
+	func get_name():
+		if _src is Script:
+			return _src.resource_path.get_basename().get_file()
+		else:
+			return _src
+	
+	func get_parent():
+		if _src is Script:
+			var base_script = _src.get_base_script()
+			if base_script != null:
+				return ObjType.new(base_script)
+			else:
+				return ObjType.new(_src.get_instance_base_type())
+		else:
+			return ObjType.new(ClassDB.get_parent_class(_src))
 
 
 class ResourceTree extends Tree:
