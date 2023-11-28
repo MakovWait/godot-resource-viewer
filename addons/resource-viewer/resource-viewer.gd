@@ -98,9 +98,11 @@ class Dock extends PanelContainer:
 		).filter(func(x): return x != null)
 		
 		for res in resources:
-			_create_folding_item(_to_obj_type(res), script_map)
+			var obj_type = _to_obj_type(res)
+			_create_folding_item(obj_type, script_map)
 		
 		for res in resources:
+			var obj_type = _to_obj_type(res)
 			var res_key = _to_obj_type(res).get_key()
 			if not res_key in script_map:
 				continue
@@ -128,12 +130,14 @@ class Dock extends PanelContainer:
 	
 	func _create_folding_item(type: ObjType, cache):
 		var type_name = type.get_name()
+		if type_name.is_empty():
+			return
 		if type.get_key() in cache:
 			return
 		
 		var parent = type.get_parent()
 		var item: TreeItem
-		if parent.get_name().is_empty():
+		if parent.get_name().is_empty() or parent.get_name() == "Resource":
 			item = _tree.create_item()
 		else:
 			_create_folding_item(parent, cache)
@@ -154,7 +158,8 @@ class Dock extends PanelContainer:
 		if script != null:
 			return ObjType.new(script)
 		else:
-			return ObjType.new(obj.get_class())
+#			return ObjType.new(obj.get_class())
+			return ObjType.new("")
 
 	func _get_theme_icon_by_class(obj_class, default="Object"):
 		if _editor_interface.get_base_control().has_theme_icon(obj_class, "EditorIcons"):
